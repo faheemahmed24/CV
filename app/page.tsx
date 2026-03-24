@@ -224,20 +224,7 @@ export default function ResumeParserApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const resumeRef = useRef<HTMLDivElement>(null);
-
-  // Auth Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        fetchSavedResumes(currentUser.uid);
-      } else {
-        setSavedResumes([]);
-      }
-    });
-    return () => unsubscribe();
-  }, [fetchSavedResumes]);
-
+  
   const fetchSavedResumes = useCallback(async (userId: string) => {
     try {
       const q = query(
@@ -288,6 +275,19 @@ export default function ResumeParserApp() {
       setIsSaving(false);
     }
   }, [activeResumeId]);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        fetchSavedResumes(currentUser.uid);
+      } else {
+        setSavedResumes([]);
+      }
+    });
+    return () => unsubscribe();
+  }, [fetchSavedResumes]);
 
   // Auto-save logic
   useEffect(() => {
