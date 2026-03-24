@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { Mail, Phone, MapPin, Link as LinkIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export interface ResumeData {
+  id?: string;
   personal_info: {
     name: string;
     email: string;

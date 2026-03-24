@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { CVPreview, ResumeData, ResumeTheme } from '@/components/cv-preview';
 import { ResumeForm } from '@/components/resume-form';
@@ -9,7 +10,7 @@ import {
   Printer, RefreshCw, MessageSquare, Sparkles, Wand2, 
   ChevronRight, ChevronLeft, Search, Target, CheckCircle2,
   Palette, Briefcase as BriefcaseIcon, GraduationCap, Languages,
-  Download, Trash2
+  Download, Trash2, Plus
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import * as htmlToImage from 'html-to-image';
@@ -218,6 +219,7 @@ export default function ResumeParserApp() {
   const [showJDInput, setShowJDInput] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>('professional');
   const [user, setUser] = useState<User | null>(null);
+  const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
   const [savedResumes, setSavedResumes] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -234,19 +236,9 @@ export default function ResumeParserApp() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [fetchSavedResumes]);
 
-  // Auto-save logic
-  useEffect(() => {
-    if (user && parsedData && !isParsing) {
-      const timer = setTimeout(() => {
-        saveResume(user.uid, parsedData);
-      }, 2000); // Debounce save
-      return () => clearTimeout(timer);
-    }
-  }, [parsedData, user]);
-
-  const fetchSavedResumes = async (userId: string) => {
+  const fetchSavedResumes = useCallback(async (userId: string) => {
     try {
       const q = query(
         collection(db, 'users', userId, 'resumes'),
@@ -267,17 +259,25 @@ export default function ResumeParserApp() {
     } catch (err) {
       console.error('Error fetching resumes:', err);
     }
-  };
+  }, []);
 
-  const saveResume = async (userId: string, data: ResumeData) => {
+  const saveResume = useCallback(async (userId: string, data: ResumeData, forceNew = false) => {
     try {
       setIsSaving(true);
-      const resumeId = (data.personal_info.name || 'Untitled').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      
+      let resumeId = activeResumeId;
+      if (!resumeId || forceNew) {
+        // Create new doc if no active ID or if we want a new version
+        const newDocRef = doc(collection(db, 'users', userId, 'resumes'));
+        resumeId = newDocRef.id;
+        setActiveResumeId(resumeId);
+      }
+
       const resumeDoc = doc(db, 'users', userId, 'resumes', resumeId);
       
       await setDoc(resumeDoc, {
         userId,
-        data,
+        data: { ...data, id: resumeId },
         updatedAt: new Date().toISOString(),
         name: data.personal_info.name || 'Untitled Resume'
       }, { merge: true });
@@ -287,10 +287,27 @@ export default function ResumeParserApp() {
     } finally {
       setIsSaving(false);
     }
+  }, [activeResumeId]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (user && parsedData && !isParsing) {
+      const timer = setTimeout(() => {
+        saveResume(user.uid, parsedData);
+      }, 2000); // Debounce save
+      return () => clearTimeout(timer);
+    }
+  }, [parsedData, user, isParsing, saveResume]);
+
+  const handleSaveAsNew = () => {
+    if (user && parsedData) {
+      saveResume(user.uid, parsedData, true);
+    }
   };
 
   const loadResume = (resume: any) => {
     setParsedData(resume.data);
+    setActiveResumeId(resume.id);
     setActiveTab('preview');
     setShowHistory(false);
   };
@@ -649,6 +666,10 @@ export default function ResumeParserApp() {
         prompt = `Original Data: ${JSON.stringify(parsedData)}\n\nUser Feedback for refinement: ${feedback}\n\nApply this feedback to the original data and return the updated JSON.`;
       }
 
+      if (!isRegenerate) {
+        setActiveResumeId(null);
+      }
+
       const parseResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
@@ -693,6 +714,14 @@ export default function ResumeParserApp() {
     }
   };
 
+  const handleNewResume = () => {
+    setParsedData(null);
+    setActiveResumeId(null);
+    setRawText('');
+    setJobDescription('');
+    setActiveTab('edit');
+  };
+
   const handleLiveEdit = (newData: ResumeData) => {
     setParsedData(newData);
   };
@@ -735,8 +764,26 @@ export default function ResumeParserApp() {
           </div>
 
           <div className="flex items-center gap-4">
+            {user && (
+              <button 
+                onClick={handleNewResume}
+                className="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" />
+                New Resume
+              </button>
+            )}
             {user ? (
               <div className="flex items-center gap-3">
+                {parsedData && (
+                  <button 
+                    onClick={handleSaveAsNew}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Save as New Version
+                  </button>
+                )}
                 <button 
                   onClick={() => setShowHistory(!showHistory)}
                   className="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1"
@@ -745,7 +792,15 @@ export default function ResumeParserApp() {
                   {showHistory ? 'Close History' : 'History'}
                 </button>
                 <div className="h-8 w-[1px] bg-slate-200" />
-                <img src={user.photoURL || ''} alt="" className="w-8 h-8 rounded-full border border-slate-200" />
+                {user.photoURL && (
+                  <Image 
+                    src={user.photoURL} 
+                    alt={user.displayName || 'User'} 
+                    width={32}
+                    height={32}
+                    className="rounded-full border border-slate-200"
+                  />
+                )}
                 <button onClick={handleLogout} className="text-xs font-bold text-slate-400 hover:text-rose-500">Logout</button>
               </div>
             ) : (
@@ -753,7 +808,7 @@ export default function ResumeParserApp() {
                 onClick={handleLogin}
                 className="bg-white text-slate-900 border border-slate-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
               >
-                <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="" />
+                <Image src="https://www.google.com/favicon.ico" width={16} height={16} alt="Google" />
                 Sign in to Auto-Save
               </button>
             )}
@@ -815,18 +870,36 @@ export default function ResumeParserApp() {
                   savedResumes.map((resume) => (
                     <div 
                       key={resume.id}
-                      className="group p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer relative"
+                      className={`group p-4 rounded-xl border transition-all cursor-pointer relative ${
+                        activeResumeId === resume.id ? 'border-indigo-600 bg-indigo-50/50' : 'border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'
+                      }`}
                       onClick={() => loadResume(resume)}
                     >
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteResume(resume.id);
-                        }}
-                        className="absolute top-2 right-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {activeResumeId === resume.id && (
+                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-indigo-600 rounded-full" />
+                      )}
+                      <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            saveResume(user.uid, resume.data, true);
+                          }}
+                          title="Duplicate as New Version"
+                          className="text-slate-300 hover:text-indigo-600"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteResume(resume.id);
+                          }}
+                          title="Delete"
+                          className="text-slate-300 hover:text-rose-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <h4 className="text-sm font-bold text-slate-900 truncate pr-6">{resume.name}</h4>
                       <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">
                         Updated {new Date(resume.updatedAt).toLocaleDateString()}

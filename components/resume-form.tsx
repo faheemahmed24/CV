@@ -90,6 +90,13 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
     });
   };
 
+  const getProficiencyLabel = (level: number) => {
+    if (level < 30) return 'Beginner';
+    if (level < 60) return 'Intermediate';
+    if (level < 90) return 'Advanced';
+    return 'Expert';
+  };
+
   return (
     <div className="space-y-8 pb-20">
       {/* Personal Info */}
@@ -325,10 +332,20 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                   </div>
-                  <div className="w-full md:w-48 space-y-1">
-                    <div className="flex justify-between">
+                  <div className="w-full md:w-56 space-y-1">
+                    <div className="flex justify-between items-center">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Proficiency</label>
-                      <span className="text-[10px] font-bold text-indigo-600">{skill.level}%</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                          skill.level < 30 ? 'bg-slate-100 text-slate-500' :
+                          skill.level < 60 ? 'bg-blue-50 text-blue-600' :
+                          skill.level < 90 ? 'bg-indigo-50 text-indigo-600' :
+                          'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          {getProficiencyLabel(skill.level)}
+                        </span>
+                        <span className="text-[10px] font-bold text-indigo-600">{skill.level}%</span>
+                      </div>
                     </div>
                     <input 
                       type="range" 
