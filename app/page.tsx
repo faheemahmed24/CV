@@ -31,28 +31,8 @@ import {
   WidthType
 } from 'docx';
 import { saveAs } from 'file-saver';
-import { 
-  auth, 
-  db, 
-  googleProvider, 
-  signInWithPopup, 
-  signOut, 
-  onAuthStateChanged, 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot,
-  serverTimestamp,
-  deleteDoc,
-  User,
-  handleFirestoreError,
-  OperationType
-} from '@/firebase';
+import { useUser } from '@auth0/nextjs-auth0/client';
+import Link from 'next/link';
 
 // Zod Schema for Validation
 const ResumeZodSchema = z.object({
@@ -207,6 +187,7 @@ const SUGGESTED_SKILLS_MAP: Record<string, string[]> = {
 };
 
 export default function ResumeParserApp() {
+  const { user, error: authError, isLoading: authLoading } = useUser();
   const [rawText, setRawText] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -218,82 +199,69 @@ export default function ResumeParserApp() {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview' | 'json'>('edit');
   const [showJDInput, setShowJDInput] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>('professional');
-  const [user, setUser] = useState<User | null>(null);
   const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
   const [savedResumes, setSavedResumes] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const resumeRef = useRef<HTMLDivElement>(null);
   
-  const fetchSavedResumes = useCallback(async (userId: string) => {
+  const fetchSavedResumes = useCallback(async () => {
     try {
-      const q = query(
-        collection(db, 'users', userId, 'resumes'),
-        orderBy('updatedAt', 'desc')
-      );
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const resumes = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+      const response = await fetch('/api/resumes');
+      if (response.ok) {
+        const resumes = await response.json();
         setSavedResumes(resumes);
-      }, (err) => {
-        handleFirestoreError(err, OperationType.LIST, `users/${userId}/resumes`);
-      });
-      
-      return unsubscribe;
+      }
     } catch (err) {
       console.error('Error fetching resumes:', err);
     }
   }, []);
 
-  const saveResume = useCallback(async (userId: string, data: ResumeData, forceNew = false) => {
+  const saveResume = useCallback(async (data: ResumeData, forceNew = false) => {
     try {
       setIsSaving(true);
       
       let resumeId = activeResumeId;
       if (!resumeId || forceNew) {
-        // Create new doc if no active ID or if we want a new version
-        const newDocRef = doc(collection(db, 'users', userId, 'resumes'));
-        resumeId = newDocRef.id;
+        resumeId = crypto.randomUUID();
         setActiveResumeId(resumeId);
       }
 
-      const resumeDoc = doc(db, 'users', userId, 'resumes', resumeId);
-      
-      await setDoc(resumeDoc, {
-        userId,
-        data: { ...data, id: resumeId },
-        updatedAt: new Date().toISOString(),
-        name: data.personal_info.name || 'Untitled Resume'
-      }, { merge: true });
+      const response = await fetch('/api/resumes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: resumeId,
+          name: data.personal_info.name || 'Untitled Resume',
+          data: { ...data, id: resumeId }
+        })
+      });
+
+      if (response.ok) {
+        fetchSavedResumes();
+      }
       
     } catch (err) {
       console.error('Error saving resume:', err);
     } finally {
       setIsSaving(false);
     }
-  }, [activeResumeId]);
+  }, [activeResumeId, fetchSavedResumes]);
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        fetchSavedResumes(currentUser.uid);
-      } else {
-        setSavedResumes([]);
-      }
-    });
-    return () => unsubscribe();
-  }, [fetchSavedResumes]);
+    if (user) {
+      fetchSavedResumes();
+    } else {
+      setSavedResumes([]);
+    }
+  }, [user, fetchSavedResumes]);
 
   // Auto-save logic
   useEffect(() => {
     if (user && parsedData && !isParsing) {
       const timer = setTimeout(() => {
-        saveResume(user.uid, parsedData);
+        saveResume(parsedData);
       }, 2000); // Debounce save
       return () => clearTimeout(timer);
     }
@@ -301,7 +269,7 @@ export default function ResumeParserApp() {
 
   const handleSaveAsNew = () => {
     if (user && parsedData) {
-      saveResume(user.uid, parsedData, true);
+      saveResume(parsedData, true);
     }
   };
 
@@ -315,26 +283,23 @@ export default function ResumeParserApp() {
   const deleteResume = async (resumeId: string) => {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, 'users', user.uid, 'resumes', resumeId));
+      const response = await fetch(`/api/resumes/${resumeId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        fetchSavedResumes();
+      }
     } catch (err) {
       console.error('Error deleting resume:', err);
     }
   };
 
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      console.error('Login error:', err);
-    }
+  const handleLogin = () => {
+    window.location.href = '/api/auth/login';
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
+  const handleLogout = () => {
+    window.location.href = '/api/auth/logout';
   };
 
   const handlePrint = useReactToPrint({
@@ -792,10 +757,10 @@ export default function ResumeParserApp() {
                   {showHistory ? 'Close History' : 'History'}
                 </button>
                 <div className="h-8 w-[1px] bg-slate-200" />
-                {user.photoURL && (
+                {user.picture && (
                   <Image 
-                    src={user.photoURL} 
-                    alt={user.displayName || 'User'} 
+                    src={user.picture} 
+                    alt={user.name || 'User'} 
                     width={32}
                     height={32}
                     className="rounded-full border border-slate-200"
@@ -808,8 +773,7 @@ export default function ResumeParserApp() {
                 onClick={handleLogin}
                 className="bg-white text-slate-900 border border-slate-200 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
               >
-                <Image src="https://www.google.com/favicon.ico" width={16} height={16} alt="Google" />
-                Sign in to Auto-Save
+                Sign in with Auth0
               </button>
             )}
             {parsedData && (
@@ -882,7 +846,7 @@ export default function ResumeParserApp() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            saveResume(user.uid, resume.data, true);
+                            saveResume(resume.data, true);
                           }}
                           title="Duplicate as New Version"
                           className="text-slate-300 hover:text-indigo-600"

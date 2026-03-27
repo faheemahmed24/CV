@@ -90,6 +90,14 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
     });
   };
 
+  const updateLanguages = (value: string) => {
+    const languagesArray = value.split(',').map(s => s.trim()).filter(s => s !== '');
+    onChange({
+      ...data,
+      languages: languagesArray
+    });
+  };
+
   const getProficiencyLabel = (level: number) => {
     if (level < 30) return 'Beginner';
     if (level < 60) return 'Intermediate';
@@ -362,7 +370,10 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Soft Skills (Comma separated)</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Sparkles className="w-3 h-3" />
+              Soft Skills (Comma separated)
+            </label>
             <textarea 
               value={data.skills.soft.join(', ')} 
               onChange={(e) => updateSoftSkills(e.target.value)}
@@ -373,10 +384,13 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Languages (Comma separated)</label>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Languages className="w-3 h-3" />
+              Languages (Comma separated)
+            </label>
             <textarea 
               value={data.languages.join(', ')} 
-              onChange={(e) => onChange({ ...data, languages: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '') })}
+              onChange={(e) => updateLanguages(e.target.value)}
               placeholder="e.g. English, Urdu, Arabic"
               rows={2}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
