@@ -651,7 +651,18 @@ export default function ResumeParserApp() {
         }
       });
 
-      let currentData = JSON.parse(parseResponse.text || '{}');
+      const responseText = parseResponse.text;
+      if (!responseText) {
+        throw new Error('Gemini AI returned an empty response.');
+      }
+
+      let currentData;
+      try {
+        currentData = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('Failed to parse Gemini response:', responseText);
+        throw new Error('The AI returned an invalid JSON format. Please try again.');
+      }
 
       // STAGE 2: Tailoring (Optional)
       if (jobDescription.trim()) {
@@ -667,7 +678,18 @@ export default function ResumeParserApp() {
             temperature: 0.1,
           }
         });
-        currentData = JSON.parse(tailorResponse.text || '{}');
+
+        const tailorText = tailorResponse.text;
+        if (!tailorText) {
+          throw new Error('Gemini AI returned an empty response during tailoring.');
+        }
+
+        try {
+          currentData = JSON.parse(tailorText);
+        } catch (parseErr) {
+          console.error('Failed to parse tailored response:', tailorText);
+          throw new Error('The AI returned an invalid JSON format during tailoring. Please try again.');
+        }
       }
 
       // Final Validation with Zod

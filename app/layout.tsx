@@ -4,9 +4,7 @@ import { validateEnv } from '@/lib/env';
 import './globals.css'; // Global styles
 
 // Validate environment variables at startup
-if (process.env.NODE_ENV !== 'development') {
-  validateEnv();
-}
+validateEnv();
 
 console.log('Providers component:', Providers !== undefined ? Providers : 'undefined');
 

@@ -1,14 +1,27 @@
 # CV Architect Pro - AI-Powered Resume Builder
 
-CV Architect Pro is a production-grade Next.js application that helps you build ATS-optimized resumes using the power of Google's Gemini AI.
+CV Architect Pro is a production-grade career engine that leverages Google's Gemini AI to help users build, tailor, and optimize their resumes for modern Applicant Tracking Systems (ATS).
 
 ## 🚀 Features
 
-- **AI Parsing:** Convert raw text or old resumes into structured JSON data.
-- **ATS Optimization:** Designed to pass through Applicant Tracking Systems.
-- **Auth0 Integration:** Secure user authentication and profile management.
-- **Cloudflare D1:** Persistent storage for your resume versions.
-- **Multi-format Export:** Download as PDF, DOCX, or JSON.
+- **AI-Powered Parsing:** Instantly convert raw text or existing resumes into structured, professional data.
+- **Job Description Tailoring:** Automatically re-rank and highlight skills to match specific job requirements.
+- **ATS Optimization:** Built-in guidance and formatting designed to pass through automated screening.
+- **Secure Authentication:** Integrated with Auth0 for robust user profile and data management.
+- **Persistent Storage:** Optional Cloudflare D1 integration for saving and managing multiple resume versions.
+- **Multi-format Export:** High-quality downloads in PDF, DOCX, and JSON formats.
+
+## 🛠️ Tech Stack
+
+- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **AI Engine:** [Google Gemini 3 Flash](https://aistudio.google.com/)
+- **Authentication:** [Auth0](https://auth0.com/)
+- **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
+- **Animations:** [Motion](https://motion.dev/)
+- **Database:** [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite)
+- **Validation:** [Zod](https://zod.dev/)
+- **Icons:** [Lucide React](https://lucide.dev/)
 
 ## 📋 Prerequisites
 
@@ -22,8 +35,8 @@ CV Architect Pro is a production-grade Next.js application that helps you build 
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
-   cd ai-studio-applet
+   git clone https://github.com/faheemahmed24/CV.git
+   cd CV
    ```
 
 2. **Install dependencies:**

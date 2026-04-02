@@ -11,22 +11,31 @@ const envSchema = z.object({
   DB: z.any().optional(),
 });
 
+export type Env = z.infer<typeof envSchema>;
+
 export const validateEnv = () => {
-  try {
-    envSchema.parse({
-      GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
-      AUTH0_SECRET: process.env.AUTH0_SECRET,
-      AUTH0_BASE_URL: process.env.AUTH0_BASE_URL,
-      AUTH0_ISSUER_BASE_URL: process.env.AUTH0_ISSUER_BASE_URL,
-      AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
-      AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
-      DB: process.env.DB,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map(e => e.path.join('.')).join(', ');
-      throw new Error(`❌ Missing or invalid environment variables: ${missingVars}`);
+  const envVars = {
+    GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+    AUTH0_SECRET: process.env.AUTH0_SECRET,
+    AUTH0_BASE_URL: process.env.AUTH0_BASE_URL,
+    AUTH0_ISSUER_BASE_URL: process.env.AUTH0_ISSUER_BASE_URL,
+    AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
+    AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
+    DB: process.env.DB,
+  };
+
+  const result = envSchema.safeParse(envVars);
+
+  if (!result.success) {
+    const missingVars = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
+    const errorMsg = `❌ Invalid or missing environment variables:\n${missingVars}\n\nPlease check your .env.local file.`;
+    
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(errorMsg);
+    } else {
+      console.error(errorMsg);
     }
-    throw error;
   }
+
+  return result.data;
 };
