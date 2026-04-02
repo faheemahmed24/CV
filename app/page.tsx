@@ -200,7 +200,7 @@ export default function ResumeParserApp() {
   const [showJDInput, setShowJDInput] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<ResumeTheme>('professional');
   const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
-  const [savedResumes, setSavedResumes] = useState<any[]>([]);
+  const [savedResumes, setSavedResumes] = useState<{ id: string; name: string; data: string; updatedAt: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const resumeRef = useRef<HTMLDivElement>(null);
@@ -273,11 +273,16 @@ export default function ResumeParserApp() {
     }
   };
 
-  const loadResume = (resume: any) => {
-    setParsedData(resume.data);
-    setActiveResumeId(resume.id);
-    setActiveTab('preview');
-    setShowHistory(false);
+  const loadResume = (resume: { id: string; name: string; data: string; updatedAt: string }) => {
+    try {
+      const data = typeof resume.data === 'string' ? JSON.parse(resume.data) : resume.data;
+      setParsedData(data as ResumeData);
+      setActiveResumeId(resume.id);
+      setActiveTab('preview');
+      setShowHistory(false);
+    } catch (err) {
+      console.error('Error parsing resume data:', err);
+    }
   };
 
   const deleteResume = async (resumeId: string) => {
@@ -670,9 +675,10 @@ export default function ResumeParserApp() {
       setParsedData(validatedData as ResumeData);
       setActiveTab('preview');
       if (isRegenerate) setFeedback('');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process. Please try again.';
       console.error('Parsing error:', err);
-      setError(err.message || 'Failed to process. Please try again.');
+      setError(errorMessage);
     } finally {
       setIsParsing(false);
       setParsingStage('idle');
